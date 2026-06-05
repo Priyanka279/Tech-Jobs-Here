@@ -263,34 +263,11 @@ async def get_jobs(
     if cached:
         return cached
 
-    has_keys = bool(ADZUNA_APP_ID or JSEARCH_KEY)
-
-    if not has_keys:
-        # Return sample data with a clear note
-        jobs = SAMPLE_JOBS.copy()
-        if q:
-            q_lower = q.lower()
-            jobs = [j for j in jobs if
-                    q_lower in j["title"].lower() or
-                    q_lower in j["company"].lower() or
-                    any(q_lower in t.lower() for t in j["tags"])]
-        if remote is True:
-            jobs = [j for j in jobs if j["remote"]]
-        if min_sal:
-            jobs = [j for j in jobs if (j["salary_min"] or 0) >= min_sal]
-        result = {
-            "jobs": jobs,
-            "total": len(jobs),
-            "page": page,
-            "source_note": "⚠️ Demo data — add API keys in .env for live jobs",
-            "api_keys_configured": False,
-        }
-        cache_set(cache_key, result)
-        return result
-
-    # Fetch from real APIs concurrently
     search_query = q or "python developer AI ML data scientist"
+    has_paid_keys = bool(ADZUNA_APP_ID or JSEARCH_KEY)
 
+    # Always fetch from all available sources concurrently
+    # RemoteOK is free and always runs; Adzuna/JSearch only run if keys are set
     tasks = []
     if source in ("all", "adzuna") and ADZUNA_APP_ID:
         tasks.append(fetch_adzuna(search_query, page=page))
@@ -303,7 +280,6 @@ async def get_jobs(
         tasks.append(asyncio.sleep(0, result=[]))
 
     if source in ("all", "remoteok"):
-        # Extract tech tags from query for RemoteOK filtering
         tag_hints = [w for w in search_query.split() if len(w) > 3]
         tasks.append(fetch_remoteok(tags=tag_hints[:4]))
     else:
@@ -315,6 +291,19 @@ async def get_jobs(
     for r in results:
         if isinstance(r, list):
             all_jobs.extend(r)
+
+    # Fall back to sample data only if every source failed
+    if not all_jobs:
+        all_jobs = SAMPLE_JOBS.copy()
+        source_note = "Showing sample jobs — RemoteOK unavailable right now"
+        api_keys_configured = False
+    elif not has_paid_keys:
+        source_note = "🟡 Showing RemoteOK remote jobs — add Adzuna/JSearch keys for 100+ more listings"
+        api_keys_configured = False
+    else:
+        active = sum(1 for r in results if isinstance(r, list) and r)
+        source_note = f"🟢 Live data from {active} source(s)"
+        api_keys_configured = True
 
     # Deduplicate by title + company
     seen = set()
@@ -341,8 +330,8 @@ async def get_jobs(
         "jobs": unique_jobs,
         "total": len(unique_jobs),
         "page": page,
-        "source_note": f"Live data from {sum(1 for r in results if isinstance(r,list) and r)} source(s)",
-        "api_keys_configured": True,
+        "source_note": source_note,
+        "api_keys_configured": api_keys_configured,
     }
     cache_set(cache_key, result)
     return result
