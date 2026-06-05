@@ -12,6 +12,9 @@ import os
 from typing import Optional
 from datetime import datetime, timedelta
 import hashlib
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="TechJobs Hub API", version="1.0.0")
 

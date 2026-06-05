@@ -1,0 +1,33 @@
+services:
+  # ── Backend: FastAPI ──────────────────────────────────────────────────────────
+  - type: web
+    name: techjobs-backend
+    env: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ADZUNA_APP_ID
+        sync: false          # set in Render dashboard (free: developer.adzuna.com)
+      - key: ADZUNA_APP_KEY
+        sync: false
+      - key: JSEARCH_KEY
+        sync: false          # set in Render dashboard (free: rapidapi.com → JSearch)
+
+  # ── Frontend: React/Vite static site ─────────────────────────────────────────
+  - type: web
+    name: techjobs-frontend
+    env: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        # After backend deploys, set this to: https://techjobs-backend.onrender.com/api
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
