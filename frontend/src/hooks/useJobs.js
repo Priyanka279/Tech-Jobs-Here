@@ -8,6 +8,7 @@ export function useJobs() {
   const [total,       setTotal]       = useState(0)
   const [sourceNote,  setSourceNote]  = useState('')
   const [hasRealData, setHasRealData] = useState(false)
+  const [waking,      setWaking]      = useState(false)
 
   // Filters
   const [query,    setQuery]    = useState('')
@@ -24,10 +25,13 @@ export function useJobs() {
   })
 
   const debounceRef = useRef(null)
+  const retryRef    = useRef(null)
+  const retryCount  = useRef(0)
 
   const fetchJobs = useCallback(async (params = {}) => {
     setLoading(true)
     setError(null)
+    clearTimeout(retryRef.current)
     try {
       // Build query string — merge category into q if not "All"
       let q = params.query ?? query
@@ -54,12 +58,23 @@ export function useJobs() {
         minSal: (params.minSal ?? minSal) > 0 ? (params.minSal ?? minSal) * 1000 : undefined,
       })
 
+      retryCount.current = 0
+      setWaking(false)
       setJobs(data.jobs || [])
       setTotal(data.total || 0)
       setSourceNote(data.source_note || '')
       setHasRealData(data.api_keys_configured || false)
     } catch (e) {
-      setError('Failed to load jobs. Is the backend running?')
+      if (retryCount.current < 4) {
+        // Backend likely sleeping on Render free tier — retry with backoff
+        retryCount.current++
+        setWaking(true)
+        setError(null)
+        retryRef.current = setTimeout(() => fetchJobs(params), 8000)
+      } else {
+        setWaking(false)
+        setError('Could not connect to server. Please try again later.')
+      }
       console.error(e)
     } finally {
       setLoading(false)
@@ -85,7 +100,7 @@ export function useJobs() {
   const refresh = () => fetchJobs()
 
   return {
-    jobs, loading, error, total, sourceNote, hasRealData,
+    jobs, loading, error, waking, total, sourceNote, hasRealData,
     query,    setQuery,
     category, setCategory,
     remote,   setRemote,

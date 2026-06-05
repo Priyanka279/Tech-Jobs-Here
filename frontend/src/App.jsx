@@ -72,18 +72,13 @@ function SourceBanner({ note, isReal }) {
     }}>
       <span>{isReal ? '🟢' : '🟡'}</span>
       <span>{note}</span>
-      {!isReal && (
-        <a href="#setup" style={{ marginLeft: 'auto', color: '#00d4ff', fontSize: 11, textDecoration: 'none', fontWeight: 600 }}>
-          Add API keys →
-        </a>
-      )}
     </div>
   )
 }
 
 export default function App() {
   const {
-    jobs, loading, error, total, sourceNote, hasRealData,
+    jobs, loading, error, waking, total, sourceNote, hasRealData,
     query, setQuery,
     category, setCategory,
     remote, setRemote,
@@ -260,6 +255,21 @@ export default function App() {
             </div>
           </div>
 
+          {/* Waking up banner */}
+          {waking && !error && (
+            <div style={{
+              background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+              borderRadius: 12, padding: '16px 20px', marginBottom: 16,
+              fontSize: 14, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 18, animation: 'bounce 1s infinite' }}>⏳</span>
+              <div>
+                <div style={{ fontWeight: 600 }}>Server is waking up…</div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 3 }}>This takes ~15–30 seconds on first load. Retrying automatically.</div>
+              </div>
+            </div>
+          )}
+
           {/* Error */}
           {error && (
             <div style={{
@@ -268,9 +278,6 @@ export default function App() {
               fontSize: 14, color: '#f87171',
             }}>
               ⚠️ {error}
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
-                Make sure the backend is running: <code style={{ background: '#111', padding: '2px 6px', borderRadius: 4 }}>uvicorn main:app --reload</code> in the <code style={{ background: '#111', padding: '2px 6px', borderRadius: 4 }}>backend/</code> folder.
-              </div>
             </div>
           )}
 
@@ -328,50 +335,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Setup instructions (shown when using demo data) */}
-          {!loading && !hasRealData && (
-            <div id="setup" style={{
-              marginTop: 32, background: '#161d2e',
-              border: '1px solid #1e293b', borderRadius: 16, padding: 28,
-            }}>
-              <h3 style={{ fontFamily: "'Syne',sans-serif", fontSize: 16, fontWeight: 700, marginBottom: 16, color: '#00d4ff' }}>
-                🔑 Add API Keys for Live Job Data
-              </h3>
-              <p style={{ fontSize: 14, color: '#64748b', marginBottom: 16, lineHeight: 1.7 }}>
-                Currently showing demo jobs. Add free API keys to get 100+ live job listings updated in real time:
-              </p>
-              {[
-                { name: 'Adzuna API', desc: 'Free — 250 req/month. Best for US/UK jobs.', url: 'https://developer.adzuna.com/', key: 'ADZUNA_APP_ID + ADZUNA_APP_KEY' },
-                { name: 'JSearch (RapidAPI)', desc: 'Free — 200 req/month. Aggregates LinkedIn, Indeed, Glassdoor.', url: 'https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch', key: 'JSEARCH_KEY' },
-                { name: 'RemoteOK', desc: 'Completely FREE, no key needed — 25+ remote tech jobs always live.', url: 'https://remoteok.com/api', key: '(no key required)' },
-              ].map(({ name, desc, url, key }) => (
-                <div key={name} style={{
-                  background: '#111827', borderRadius: 10, padding: '14px 16px',
-                  marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 14,
-                }}>
-                  <div style={{ fontSize: 20 }}>🔗</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
-                      <a href={url} target="_blank" rel="noreferrer" style={{ color: '#00d4ff', textDecoration: 'none' }}>{name} ↗</a>
-                    </div>
-                    <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>{desc}</div>
-                    <code style={{ fontSize: 12, color: '#10b981', background: '#0a0e1a', padding: '2px 8px', borderRadius: 5 }}>{key}</code>
-                  </div>
-                </div>
-              ))}
-              <div style={{
-                background: '#0a0e1a', borderRadius: 10, padding: 16,
-                fontFamily: 'monospace', fontSize: 13, color: '#10b981',
-                marginTop: 8, lineHeight: 2,
-              }}>
-                <div style={{ color: '#64748b', marginBottom: 4 }}># backend/.env</div>
-                <div>ADZUNA_APP_ID=your_id_here</div>
-                <div>ADZUNA_APP_KEY=your_key_here</div>
-                <div>JSEARCH_KEY=your_rapidapi_key</div>
-                <div style={{ color: '#64748b', marginTop: 4 }}># Then restart: uvicorn main:app --reload</div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
