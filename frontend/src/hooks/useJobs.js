@@ -44,6 +44,7 @@ export function useJobs() {
           DataAnalyst: 'data analyst business intelligence reporting Excel SQL',
           DataEntry:   'data entry clerk remote typing administrative',
           Entry:    'entry level junior graduate fresher trainee associate',
+          QA:       'QA quality assurance test engineer automation tester SDET',
           Python:   'python developer',
           Backend:  'backend engineer',
           Frontend: 'frontend react developer',

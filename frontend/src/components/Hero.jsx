@@ -8,6 +8,7 @@ const CATS = [
   { id: 'DataAnalyst', label: '📈 Data Analyst' },
   { id: 'DataEntry',   label: '⌨️ Data Entry' },
   { id: 'Entry',    label: '🌱 Entry Level / Fresher' },
+  { id: 'QA',       label: '🧪 QA / Testing' },
   { id: 'Python',   label: '🐍 Python' },
   { id: 'Backend',  label: '⚙️ Backend' },
   { id: 'Frontend', label: '🎨 Frontend' },

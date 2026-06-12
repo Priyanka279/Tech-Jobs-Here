@@ -1,6 +1,7 @@
 """
 TechJobs Hub - FastAPI Backend
-Fetches real jobs from Adzuna API + JSearch (RapidAPI) + RemoteOK
+Fetches real jobs from free live sources (RemoteOK, Remotive, Arbeitnow, Jobicy)
+plus optional keyed APIs (Adzuna, JSearch via RapidAPI)
 """
 
 from fastapi import FastAPI, Query, HTTPException, UploadFile, File
@@ -10,6 +11,7 @@ import httpx
 import asyncio
 import os
 import io
+import re
 from typing import Optional
 from datetime import datetime, timedelta
 import hashlib
@@ -112,6 +114,77 @@ def normalise_remoteok(job: dict) -> dict:
         "logo":        job.get("company_logo"),
     }
 
+def _strip_html(text: str) -> str:
+    return re.sub(r"<[^>]+>", " ", text or "").replace("&amp;", "&").replace("&nbsp;", " ").strip()
+
+def normalise_remotive(job: dict) -> dict:
+    desc = _strip_html(job.get("description", ""))[:400]
+    salary_raw = (job.get("salary") or "").strip()
+    return {
+        "id":          make_id("remotive", str(job.get("id", ""))),
+        "source":      "remotive",
+        "title":       job.get("title", ""),
+        "company":     job.get("company_name", "Unknown"),
+        "location":    job.get("candidate_required_location") or "🌐 Remote",
+        "description": desc,
+        "salary_min":  None,
+        "salary_max":  None,
+        "salary_label": salary_raw if salary_raw else "Competitive",
+        "job_type":    (job.get("job_type") or "full_time").replace("_", " ").title(),
+        "remote":      True,
+        "tags":        (job.get("tags") or [])[:6] or _extract_tags(job.get("title", "") + " " + desc),
+        "apply_url":   job.get("url", "#"),
+        "posted_at":   job.get("publication_date", ""),
+        "posted_label": _time_ago(job.get("publication_date", "")),
+        "logo":        job.get("company_logo"),
+    }
+
+def normalise_arbeitnow(job: dict) -> dict:
+    desc = _strip_html(job.get("description", ""))[:400]
+    return {
+        "id":          make_id("arbeitnow", job.get("slug", "")),
+        "source":      "arbeitnow",
+        "title":       job.get("title", ""),
+        "company":     job.get("company_name", "Unknown"),
+        "location":    job.get("location") or ("🌐 Remote" if job.get("remote") else ""),
+        "description": desc,
+        "salary_min":  None,
+        "salary_max":  None,
+        "salary_label": "Competitive",
+        "job_type":    (job.get("job_types") or ["Full-time"])[0].replace("_", " ").title(),
+        "remote":      bool(job.get("remote")),
+        "tags":        (job.get("tags") or [])[:6] or _extract_tags(job.get("title", "") + " " + desc),
+        "apply_url":   job.get("url", "#"),
+        "posted_at":   str(job.get("created_at", "")),
+        "posted_label": _time_ago(str(job.get("created_at", ""))),
+        "logo":        None,
+    }
+
+def normalise_jobicy(job: dict) -> dict:
+    desc = _strip_html(job.get("jobExcerpt") or job.get("jobDescription", ""))[:400]
+    pub = (job.get("pubDate") or "").replace(" ", "T")
+    job_type = job.get("jobType")
+    if isinstance(job_type, list):
+        job_type = job_type[0] if job_type else "Full-time"
+    return {
+        "id":          make_id("jobicy", str(job.get("id", ""))),
+        "source":      "jobicy",
+        "title":       job.get("jobTitle", ""),
+        "company":     job.get("companyName", "Unknown"),
+        "location":    job.get("jobGeo") or "🌐 Remote",
+        "description": desc,
+        "salary_min":  job.get("annualSalaryMin"),
+        "salary_max":  job.get("annualSalaryMax"),
+        "salary_label": _fmt_salary(job.get("annualSalaryMin"), job.get("annualSalaryMax")),
+        "job_type":    (job_type or "Full-time").replace("_", " ").title(),
+        "remote":      True,
+        "tags":        _extract_tags(job.get("jobTitle", "") + " " + desc),
+        "apply_url":   job.get("url", "#"),
+        "posted_at":   pub,
+        "posted_label": _time_ago(pub),
+        "logo":        job.get("companyLogo"),
+    }
+
 # ── HELPERS ────────────────────────────────────────────────────────────────────
 TECH_TAGS = [
     "Python","JavaScript","TypeScript","React","Node.js","Java","Go","Rust","C++","C#",
@@ -122,6 +195,8 @@ TECH_TAGS = [
     "FastAPI","Django","Flask","REST","GraphQL","gRPC",
     "dbt","Looker","Tableau","Power BI","Snowflake","Databricks","Spark",
     "Excel","Google Sheets","Data Entry","Data Analysis","VLOOKUP","Salesforce",
+    "Selenium","Cypress","Playwright","JUnit","TestNG","Appium","Postman","JIRA",
+    "QA","Manual Testing","Automation Testing","API Testing","Test Automation",
 ]
 
 def _extract_tags(text: str, limit: int = 7) -> list[str]:
@@ -227,6 +302,62 @@ async def fetch_remoteok(tags: list[str] = None) -> list[dict]:
         print(f"[RemoteOK] Error: {e}")
         return []
 
+def _matches_query(text: str, query: str) -> bool:
+    """True if any meaningful query word appears in the text."""
+    words = [w.lower() for w in query.split() if len(w) > 2]
+    if not words:
+        return True
+    t = text.lower()
+    return any(w in t for w in words)
+
+async def fetch_remotive(query: str) -> list[dict]:
+    """Remotive — free remote-jobs API, no key needed."""
+    url = "https://remotive.com/api/remote-jobs"
+    try:
+        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "TechJobsHub/1.0"}) as client:
+            r = await client.get(url, params={"search": query, "limit": 25})
+            r.raise_for_status()
+            data = r.json()
+            return [normalise_remotive(j) for j in data.get("jobs", [])[:25]]
+    except Exception as e:
+        print(f"[Remotive] Error: {e}")
+        return []
+
+async def fetch_arbeitnow(query: str) -> list[dict]:
+    """Arbeitnow job board — free API, no key needed. Filters client-side."""
+    url = "https://www.arbeitnow.com/api/job-board-api"
+    try:
+        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "TechJobsHub/1.0"}) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            data = r.json()
+            jobs = [
+                j for j in data.get("data", [])
+                if _matches_query(j.get("title", "") + " " + " ".join(j.get("tags", [])), query)
+            ]
+            return [normalise_arbeitnow(j) for j in jobs[:20]]
+    except Exception as e:
+        print(f"[Arbeitnow] Error: {e}")
+        return []
+
+async def fetch_jobicy(query: str) -> list[dict]:
+    """Jobicy — free remote-jobs API, no key needed."""
+    url = "https://jobicy.com/api/v2/remote-jobs"
+    # Jobicy's tag param works best with a single keyword
+    first_word = next((w for w in query.split() if len(w) > 3), "")
+    params = {"count": 25}
+    if first_word:
+        params["tag"] = first_word
+    try:
+        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "TechJobsHub/1.0"}) as client:
+            r = await client.get(url, params=params)
+            r.raise_for_status()
+            data = r.json()
+            return [normalise_jobicy(j) for j in data.get("jobs", [])[:25]]
+    except Exception as e:
+        print(f"[Jobicy] Error: {e}")
+        return []
+
 # ── FALLBACK SAMPLE JOBS (shown when no API keys configured) ──────────────────
 SAMPLE_JOBS = [
     {"id":"s1","source":"sample","title":"Senior ML Engineer","company":"Google DeepMind","location":"Mountain View, CA (Hybrid)","description":"Work on foundation models powering Gemini. Design and implement ML systems at scale using PyTorch and TPUs.","salary_min":180000,"salary_max":280000,"salary_label":"$180k–$280k","job_type":"Full-time","remote":False,"tags":["Python","PyTorch","TensorFlow","LLMs","MLOps"],"apply_url":"https://careers.google.com","posted_at":"","posted_label":"2h ago","logo":None},
@@ -247,6 +378,9 @@ SAMPLE_JOBS = [
     {"id":"s16","source":"sample","title":"Data Entry Specialist","company":"UnitedHealth Group","location":"Remote (US)","description":"Process and validate healthcare records and claims data. Entry-level position with full training and benefits from day one.","salary_min":38000,"salary_max":48000,"salary_label":"$38k–$48k","job_type":"Full-time","remote":True,"tags":["Data Entry","Excel","Salesforce"],"apply_url":"https://careers.unitedhealthgroup.com","posted_at":"","posted_label":"8h ago","logo":None},
     {"id":"s17","source":"sample","title":"Software Engineer I (New Grad / Fresher)","company":"Amazon","location":"Seattle, WA / Remote","description":"Entry-level software engineering role for new graduates. Work on real production systems with mentorship from senior engineers. CS degree or bootcamp welcome.","salary_min":95000,"salary_max":130000,"salary_label":"$95k–$130k","job_type":"Full-time","remote":True,"tags":["Python","Java","SQL","REST","AWS"],"apply_url":"https://www.amazon.jobs","posted_at":"","posted_label":"2h ago","logo":None},
     {"id":"s18","source":"sample","title":"Junior Python Developer (Entry Level)","company":"Cognizant","location":"Remote (Global)","description":"Great first job in tech for freshers. Build and maintain internal tools using Python and SQL under guidance of a senior team.","salary_min":50000,"salary_max":68000,"salary_label":"$50k–$68k","job_type":"Full-time","remote":True,"tags":["Python","SQL","REST","Excel"],"apply_url":"https://careers.cognizant.com","posted_at":"","posted_label":"4h ago","logo":None},
+    {"id":"s19","source":"sample","title":"QA Automation Engineer","company":"Salesforce","location":"San Francisco, CA / Remote","description":"Build and maintain automated test suites for Salesforce cloud products using Selenium and Playwright. Design CI test pipelines and improve release quality.","salary_min":110000,"salary_max":160000,"salary_label":"$110k–$160k","job_type":"Full-time","remote":True,"tags":["Selenium","Playwright","Python","API Testing","JIRA"],"apply_url":"https://careers.salesforce.com","posted_at":"","posted_label":"3h ago","logo":None},
+    {"id":"s20","source":"sample","title":"SDET – Software Development Engineer in Test","company":"Uber","location":"Seattle, WA","description":"Write test frameworks and automation infrastructure for Uber's rider and driver apps. Strong coding skills in Java or Python required.","salary_min":140000,"salary_max":200000,"salary_label":"$140k–$200k","job_type":"Full-time","remote":False,"tags":["Java","Python","Appium","Test Automation","CI/CD"],"apply_url":"https://www.uber.com/careers","posted_at":"","posted_label":"7h ago","logo":None},
+    {"id":"s21","source":"sample","title":"Manual QA Tester (Entry Level)","company":"TCS","location":"Remote (Global)","description":"Entry-level QA role for freshers. Execute manual test cases, log defects in JIRA, and learn automation tools on the job. Full training provided.","salary_min":42000,"salary_max":58000,"salary_label":"$42k–$58k","job_type":"Full-time","remote":True,"tags":["Manual Testing","JIRA","QA","Postman"],"apply_url":"https://www.tcs.com/careers","posted_at":"","posted_label":"5h ago","logo":None},
 ]
 
 # ── ROUTES ─────────────────────────────────────────────────────────────────────
@@ -272,7 +406,6 @@ async def _aggregate_jobs(
         return cached
 
     search_query = q or "python developer AI ML data scientist"
-    has_paid_keys = bool(ADZUNA_APP_ID or JSEARCH_KEY)
 
     # Always fetch from all available sources concurrently
     # RemoteOK is free and always runs; Adzuna/JSearch only run if keys are set
@@ -293,6 +426,14 @@ async def _aggregate_jobs(
     else:
         tasks.append(asyncio.sleep(0, result=[]))
 
+    # Free keyless live sources — always fetched so the site stays dynamic
+    if source == "all":
+        tasks.append(fetch_remotive(search_query))
+        tasks.append(fetch_arbeitnow(search_query))
+        tasks.append(fetch_jobicy(search_query))
+    else:
+        tasks.extend(asyncio.sleep(0, result=[]) for _ in range(3))
+
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     all_jobs = []
@@ -303,14 +444,11 @@ async def _aggregate_jobs(
     # Fall back to sample data only if every source failed
     if not all_jobs:
         all_jobs = SAMPLE_JOBS.copy()
-        source_note = "Showing sample jobs — RemoteOK unavailable right now"
-        api_keys_configured = False
-    elif not has_paid_keys:
-        source_note = "🟡 Showing RemoteOK remote jobs — add Adzuna/JSearch keys for 100+ more listings"
+        source_note = "Showing sample jobs — live job sources unavailable right now"
         api_keys_configured = False
     else:
         active = sum(1 for r in results if isinstance(r, list) and r)
-        source_note = f"🟢 Live data from {active} source(s)"
+        source_note = f"🟢 Live jobs from {active} source(s) — updated every 15 min"
         api_keys_configured = True
 
     # Deduplicate by title + company
@@ -377,6 +515,7 @@ async def get_categories():
             {"id": "data_analyst", "label": "Data Analyst", "query": "data analyst business intelligence reporting Excel SQL"},
             {"id": "data_entry",   "label": "Data Entry",   "query": "data entry clerk remote typing administrative"},
             {"id": "entry_level",  "label": "Entry Level / Fresher", "query": "entry level junior graduate fresher trainee associate"},
+            {"id": "qa",           "label": "QA / Testing", "query": "QA quality assurance test engineer automation tester SDET"},
             {"id": "python",    "label": "Python",         "query": "python developer engineer"},
             {"id": "backend",   "label": "Backend",        "query": "backend engineer API developer"},
             {"id": "frontend",  "label": "Frontend",       "query": "frontend React TypeScript developer"},
@@ -498,7 +637,7 @@ async def resume_match(file: UploadFile = File(...)):
     resume_text = resume_text[:MAX_RESUME_CHARS]
 
     jobs_result = await _aggregate_jobs(
-        q="software engineer python AI ML data science data analyst data entry entry level junior",
+        q="software engineer python AI ML data science data analyst data entry QA tester entry level junior",
         remote=None, page=1, sort="newest", min_sal=None, source="all",
     )
     jobs = jobs_result["jobs"][:RESUME_MATCH_JOB_LIMIT]
