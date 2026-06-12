@@ -4,6 +4,7 @@ import Hero     from './components/Hero.jsx'
 import Sidebar  from './components/Sidebar.jsx'
 import JobCard  from './components/JobCard.jsx'
 import JobModal from './components/JobModal.jsx'
+import ResumeMatch from './components/ResumeMatch.jsx'
 import { useJobs } from './hooks/useJobs.js'
 import { api } from './utils/api.js'
 
@@ -174,6 +175,10 @@ export default function App() {
         savedCount={saved.size}
       />
 
+      {tab === 'match' ? (
+        <ResumeMatch />
+      ) : (
+      <>
       <Hero
         query={query}
         setQuery={setQuery}
@@ -337,6 +342,8 @@ export default function App() {
 
         </div>
       </div>
+      </>
+      )}
 
       {/* Job detail modal */}
       {modal && (

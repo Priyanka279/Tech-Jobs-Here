@@ -53,6 +53,7 @@ export default function Navbar({ tab, setTab, savedCount }) {
     { id: 'all',   label: 'All Jobs' },
     { id: 'saved', label: 'Saved' },
     { id: 'top',   label: 'FAANG+' },
+    { id: 'match', label: '✨ AI Resume Match' },
   ]
 
   return (

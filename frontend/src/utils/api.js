@@ -31,4 +31,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, keywords }),
     }),
+
+  matchResume: async (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch(`${BASE}/resume-match`, { method: 'POST', body: formData })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.detail || `API error ${res.status}`)
+    }
+    return res.json()
+  },
 }

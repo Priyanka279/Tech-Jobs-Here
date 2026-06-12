@@ -3,15 +3,17 @@ TechJobs Hub - FastAPI Backend
 Fetches real jobs from Adzuna API + JSearch (RapidAPI) + RemoteOK
 """
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import httpx
 import asyncio
 import os
+import io
 from typing import Optional
 from datetime import datetime, timedelta
 import hashlib
+from pypdf import PdfReader
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -119,12 +121,13 @@ TECH_TAGS = [
     "LLM","NLP","Computer Vision","Deep Learning","ML","AI","MLOps",
     "FastAPI","Django","Flask","REST","GraphQL","gRPC",
     "dbt","Looker","Tableau","Power BI","Snowflake","Databricks","Spark",
+    "Excel","Google Sheets","Data Entry","Data Analysis","VLOOKUP","Salesforce",
 ]
 
-def _extract_tags(text: str) -> list[str]:
+def _extract_tags(text: str, limit: int = 7) -> list[str]:
     text_lower = text.lower()
     found = [t for t in TECH_TAGS if t.lower() in text_lower]
-    return found[:7]
+    return found[:limit] if limit else found
 
 def _fmt_salary(mn, mx) -> str:
     if mn and mx:
@@ -238,6 +241,12 @@ SAMPLE_JOBS = [
     {"id":"s10","source":"sample","title":"Senior Python Engineer – GenAI","company":"Databricks","location":"San Francisco, CA (Remote OK)","description":"Build LLM-powered data intelligence features used by 10,000+ organizations including 50% of Fortune 500.","salary_min":170000,"salary_max":255000,"salary_label":"$170k–$255k","job_type":"Full-time","remote":True,"tags":["Python","LLM","Spark","MLflow","REST APIs"],"apply_url":"https://www.databricks.com/careers","posted_at":"","posted_label":"1w ago","logo":None},
     {"id":"s11","source":"sample","title":"Computer Vision Engineer","company":"Apple","location":"Cupertino, CA","description":"Build real-time CV for Vision Pro. Optimize on-device inference for Apple Silicon with privacy-preserving ML.","salary_min":170000,"salary_max":260000,"salary_label":"$170k–$260k","job_type":"Full-time","remote":False,"tags":["Python","C++","CoreML","Metal","OpenCV"],"apply_url":"https://jobs.apple.com","posted_at":"","posted_label":"5d ago","logo":None},
     {"id":"s12","source":"sample","title":"MLOps Platform Engineer","company":"Airbnb","location":"San Francisco, CA (Remote OK)","description":"Build Airbnb's ML training and serving platform. Design feature stores enabling 100+ data scientists.","salary_min":150000,"salary_max":225000,"salary_label":"$150k–$225k","job_type":"Full-time","remote":True,"tags":["Python","Airflow","Kubernetes","MLflow","Docker"],"apply_url":"https://careers.airbnb.com","posted_at":"","posted_label":"5d ago","logo":None},
+    {"id":"s13","source":"sample","title":"Data Analyst","company":"Spotify","location":"New York, NY (Remote OK)","description":"Analyze listener behavior and product metrics. Build dashboards and reports for product and marketing teams using SQL and Tableau.","salary_min":75000,"salary_max":105000,"salary_label":"$75k–$105k","job_type":"Full-time","remote":True,"tags":["SQL","Excel","Tableau","Data Analysis","Power BI"],"apply_url":"https://www.lifeatspotify.com","posted_at":"","posted_label":"3h ago","logo":None},
+    {"id":"s14","source":"sample","title":"Junior Data Analyst (Entry Level)","company":"Capital One","location":"Richmond, VA / Remote","description":"Entry-level role for recent graduates. Support senior analysts with reporting, data cleaning, and ad-hoc analysis. Training provided.","salary_min":55000,"salary_max":70000,"salary_label":"$55k–$70k","job_type":"Full-time","remote":True,"tags":["SQL","Excel","Data Analysis","Power BI"],"apply_url":"https://www.capitalonecareers.com","posted_at":"","posted_label":"5h ago","logo":None},
+    {"id":"s15","source":"sample","title":"Remote Data Entry Clerk","company":"Robert Half","location":"Remote (US)","description":"Accurately enter and update records into company databases and spreadsheets. No degree required — strong typing and attention to detail needed.","salary_min":35000,"salary_max":45000,"salary_label":"$35k–$45k","job_type":"Full-time","remote":True,"tags":["Data Entry","Excel","Google Sheets"],"apply_url":"https://www.roberthalf.com","posted_at":"","posted_label":"1h ago","logo":None},
+    {"id":"s16","source":"sample","title":"Data Entry Specialist","company":"UnitedHealth Group","location":"Remote (US)","description":"Process and validate healthcare records and claims data. Entry-level position with full training and benefits from day one.","salary_min":38000,"salary_max":48000,"salary_label":"$38k–$48k","job_type":"Full-time","remote":True,"tags":["Data Entry","Excel","Salesforce"],"apply_url":"https://careers.unitedhealthgroup.com","posted_at":"","posted_label":"8h ago","logo":None},
+    {"id":"s17","source":"sample","title":"Software Engineer I (New Grad / Fresher)","company":"Amazon","location":"Seattle, WA / Remote","description":"Entry-level software engineering role for new graduates. Work on real production systems with mentorship from senior engineers. CS degree or bootcamp welcome.","salary_min":95000,"salary_max":130000,"salary_label":"$95k–$130k","job_type":"Full-time","remote":True,"tags":["Python","Java","SQL","REST","AWS"],"apply_url":"https://www.amazon.jobs","posted_at":"","posted_label":"2h ago","logo":None},
+    {"id":"s18","source":"sample","title":"Junior Python Developer (Entry Level)","company":"Cognizant","location":"Remote (Global)","description":"Great first job in tech for freshers. Build and maintain internal tools using Python and SQL under guidance of a senior team.","salary_min":50000,"salary_max":68000,"salary_label":"$50k–$68k","job_type":"Full-time","remote":True,"tags":["Python","SQL","REST","Excel"],"apply_url":"https://careers.cognizant.com","posted_at":"","posted_label":"4h ago","logo":None},
 ]
 
 # ── ROUTES ─────────────────────────────────────────────────────────────────────
@@ -245,14 +254,13 @@ SAMPLE_JOBS = [
 async def root():
     return {"status": "TechJobs Hub API running", "version": "1.0.0"}
 
-@app.get("/api/jobs")
-async def get_jobs(
-    q:       Optional[str]  = Query(default="software engineer python AI ML data science"),
-    remote:  Optional[bool] = Query(default=None),
-    page:    int            = Query(default=1, ge=1),
-    sort:    str            = Query(default="newest"),
-    min_sal: Optional[int]  = Query(default=None),
-    source:  Optional[str]  = Query(default="all"),  # all | adzuna | jsearch | remoteok
+async def _aggregate_jobs(
+    q:       Optional[str],
+    remote:  Optional[bool],
+    page:    int,
+    sort:    str,
+    min_sal: Optional[int],
+    source:  Optional[str],
 ):
     """
     Aggregate jobs from all configured sources.
@@ -337,6 +345,18 @@ async def get_jobs(
     return result
 
 
+@app.get("/api/jobs")
+async def get_jobs(
+    q:       Optional[str]  = Query(default="software engineer python AI ML data science"),
+    remote:  Optional[bool] = Query(default=None),
+    page:    int            = Query(default=1, ge=1),
+    sort:    str            = Query(default="newest"),
+    min_sal: Optional[int]  = Query(default=None),
+    source:  Optional[str]  = Query(default="all"),  # all | adzuna | jsearch | remoteok
+):
+    return await _aggregate_jobs(q, remote, page, sort, min_sal, source)
+
+
 @app.get("/api/jobs/{job_id}")
 async def get_job(job_id: str):
     """Get a single job by id (from cache/sample data)."""
@@ -354,6 +374,9 @@ async def get_categories():
             {"id": "software",  "label": "Software Dev",   "query": "software engineer developer"},
             {"id": "ml",        "label": "ML / AI",        "query": "machine learning AI engineer"},
             {"id": "data",      "label": "Data Science",   "query": "data scientist analyst"},
+            {"id": "data_analyst", "label": "Data Analyst", "query": "data analyst business intelligence reporting Excel SQL"},
+            {"id": "data_entry",   "label": "Data Entry",   "query": "data entry clerk remote typing administrative"},
+            {"id": "entry_level",  "label": "Entry Level / Fresher", "query": "entry level junior graduate fresher trainee associate"},
             {"id": "python",    "label": "Python",         "query": "python developer engineer"},
             {"id": "backend",   "label": "Backend",        "query": "backend engineer API developer"},
             {"id": "frontend",  "label": "Frontend",       "query": "frontend React TypeScript developer"},
@@ -383,3 +406,102 @@ async def create_alert(payload: dict):
     # In production: save to DB + send confirmation email
     print(f"[Alert] New alert: {email} → {keywords}")
     return {"status": "created", "message": f"Alerts activated for {email}"}
+
+
+# ── AI RESUME MATCH ──────────────────────────────────────────────────────────
+MAX_RESUME_CHARS = 8000
+RESUME_MATCH_JOB_LIMIT = 25
+
+def _extract_resume_text(filename: str, content: bytes) -> str:
+    name = (filename or "").lower()
+    if name.endswith(".pdf"):
+        reader = PdfReader(io.BytesIO(content))
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+    return content.decode("utf-8", errors="ignore")
+
+# Seniority signal words — used to avoid matching a fresher's resume to a "Staff/Principal" role and vice versa
+SENIOR_WORDS = ["senior", "staff", "principal", "lead", "architect", "head of", "manager", "director"]
+ENTRY_WORDS  = ["entry level", "entry-level", "fresher", "graduate", "new grad", "intern", "junior", "trainee", "associate"]
+
+def _seniority_level(text: str) -> str:
+    t = text.lower()
+    if any(w in t for w in SENIOR_WORDS):
+        return "senior"
+    if any(w in t for w in ENTRY_WORDS):
+        return "entry"
+    return "mid"
+
+def _match_resume_to_jobs(resume_text: str, jobs: list[dict]) -> list[dict]:
+    """Free, deterministic resume-to-job matching based on skill-tag overlap + seniority fit."""
+    resume_skills = set(_extract_tags(resume_text, limit=None))
+    resume_level = _seniority_level(resume_text)
+
+    matches = []
+    for job in jobs:
+        job_text = f"{job['title']} {job.get('description','')}"
+        job_tags = set(job.get("tags", [])) | set(_extract_tags(job_text, limit=None))
+        # Seniority is read from the title only — descriptions often mention
+        # "senior engineers" etc. as colleagues, which would be misleading.
+        job_level = _seniority_level(job["title"])
+
+        matched = sorted(resume_skills & job_tags)
+        missing = sorted(job_tags - resume_skills)[:6]
+
+        skill_score = (len(matched) / len(job_tags) * 100) if job_tags else 30
+
+        adjust = 0
+        if resume_level == "entry" and job_level == "senior":
+            adjust = -35
+        elif resume_level == "senior" and job_level == "entry":
+            adjust = -15
+        elif resume_level == job_level and resume_level != "mid":
+            adjust = 10
+
+        score = max(0, min(100, round(skill_score + adjust)))
+
+        if matched:
+            summary = f"Matches {len(matched)} of {len(job_tags)} key skills ({', '.join(matched[:4])})."
+        else:
+            summary = "No direct skill overlap found — this role may require different skills than your resume shows."
+        if resume_level == "entry" and job_level == "senior":
+            summary += " Note: this role looks senior-level relative to your resume."
+        elif resume_level == "senior" and job_level == "entry":
+            summary += " Note: this role may be more junior than your experience level."
+
+        matches.append({
+            **job,
+            "match_score":    score,
+            "match_summary":  summary,
+            "matched_skills": matched[:8],
+            "missing_skills": missing,
+        })
+
+    matches.sort(key=lambda m: m["match_score"], reverse=True)
+    return matches
+
+
+@app.post("/api/resume-match")
+async def resume_match(file: UploadFile = File(...)):
+    """Upload a resume (PDF or text) and get jobs ranked by skill-overlap fit."""
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB).")
+
+    try:
+        resume_text = _extract_resume_text(file.filename or "", content).strip()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read file. Please upload a PDF or .txt resume.")
+
+    if not resume_text:
+        raise HTTPException(status_code=400, detail="Could not extract text from file. Please upload a PDF or .txt resume.")
+
+    resume_text = resume_text[:MAX_RESUME_CHARS]
+
+    jobs_result = await _aggregate_jobs(
+        q="software engineer python AI ML data science data analyst data entry entry level junior",
+        remote=None, page=1, sort="newest", min_sal=None, source="all",
+    )
+    jobs = jobs_result["jobs"][:RESUME_MATCH_JOB_LIMIT]
+
+    matches = _match_resume_to_jobs(resume_text, jobs)
+    return {"matches": matches, "total": len(matches)}

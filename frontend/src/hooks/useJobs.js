@@ -41,6 +41,9 @@ export function useJobs() {
           Software: 'software engineer developer',
           'ML/AI':  'machine learning AI engineer',
           Data:     'data scientist analyst',
+          DataAnalyst: 'data analyst business intelligence reporting Excel SQL',
+          DataEntry:   'data entry clerk remote typing administrative',
+          Entry:    'entry level junior graduate fresher trainee associate',
           Python:   'python developer',
           Backend:  'backend engineer',
           Frontend: 'frontend react developer',
@@ -51,7 +54,7 @@ export function useJobs() {
       }
 
       const data = await api.getJobs({
-        q:      q || 'software engineer python AI ML data science',
+        q:      q || 'software engineer python AI ML data science data analyst data entry entry level junior',
         remote: params.remote ?? remote,
         page:   params.page ?? page,
         sort:   params.sort ?? sort,
