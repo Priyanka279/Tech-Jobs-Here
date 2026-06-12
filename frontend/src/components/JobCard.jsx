@@ -69,22 +69,9 @@ export default function JobCard({ job, saved, onSave, onClick }) {
   return (
     <div
       onClick={onClick}
+      className="glass glow-hover"
       style={{
-        background: '#161d2e', border: '1px solid #1e293b', borderRadius: 16,
-        padding: 22, cursor: 'pointer', transition: 'all 0.2s', position: 'relative',
-        overflow: 'hidden',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.borderColor = 'rgba(0,212,255,0.25)'
-        e.currentTarget.style.background = '#1c2538'
-        e.currentTarget.style.transform = 'translateY(-2px)'
-        e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,0,0,0.3)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = '#1e293b'
-        e.currentTarget.style.background = '#161d2e'
-        e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.boxShadow = 'none'
+        padding: 22, cursor: 'pointer', position: 'relative', overflow: 'hidden',
       }}
     >
       {/* Left accent bar */}
@@ -92,7 +79,7 @@ export default function JobCard({ job, saved, onSave, onClick }) {
         position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
         background: badge === 'hot' ? 'linear-gradient(180deg,#00d4ff,#7c3aed)'
                   : badge === 'feat'? 'linear-gradient(180deg,#7c3aed,#a855f7)'
-                  : badge === 'new' ? '#10b981'
+                  : badge === 'new' ? 'var(--green)'
                   : 'transparent',
         borderRadius: '3px 0 0 3px',
       }} />
@@ -113,10 +100,10 @@ export default function JobCard({ job, saved, onSave, onClick }) {
             }
           </div>
           <div>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 16, fontWeight: 700, marginBottom: 4, color: '#e2e8f0', lineHeight: 1.2 }}>
+            <div style={{ fontFamily: 'var(--font-head)', fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)', lineHeight: 1.2 }}>
               {job.title}
             </div>
-            <div style={{ fontSize: 13, color: '#64748b' }}>{job.company}</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{job.company}</div>
           </div>
         </div>
         {/* Right: badge + save + time */}
@@ -126,12 +113,12 @@ export default function JobCard({ job, saved, onSave, onClick }) {
             <button
               onClick={e => { e.stopPropagation(); onSave(job.id) }}
               title={saved ? 'Unsave' : 'Save'}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 2, transition: 'transform 0.15s' }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 2, transition: 'transform 0.15s var(--ease)' }}
               onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
               onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             >{saved ? '❤️' : '🤍'}</button>
           </div>
-          <div style={{ fontSize: 11, color: '#64748b' }}>{job.posted_label}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{job.posted_label}</div>
         </div>
       </div>
 
@@ -139,49 +126,40 @@ export default function JobCard({ job, saved, onSave, onClick }) {
       {job.tags?.length > 0 && (
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', margin: '10px 0' }}>
           {job.tags.slice(0, 6).map(t => (
-            <span key={t} style={{
-              padding: '4px 11px', background: '#111827', border: '1px solid #1e293b',
-              borderRadius: 7, fontSize: 12, color: '#64748b',
-            }}>{t}</span>
+            <span key={t} className="tag">{t}</span>
           ))}
           {job.remote && (
-            <span style={{
-              padding: '4px 11px', background: 'rgba(0,212,255,0.06)',
+            <span className="tag" style={{
+              background: 'rgba(0,212,255,0.06)',
               border: '1px solid rgba(0,212,255,0.2)',
-              borderRadius: 7, fontSize: 12, color: '#00d4ff',
+              color: 'var(--accent)',
             }}>🌐 Remote</span>
           )}
         </div>
       )}
 
       {/* Footer */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 13, borderTop: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 13, borderTop: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           {[
             { icon: '📍', text: job.location?.length > 28 ? job.location.slice(0,26)+'…' : job.location },
             { icon: '💼', text: job.job_type },
           ].map(({ icon, text }) => text ? (
-            <div key={icon} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748b' }}>
+            <div key={icon} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--muted)' }}>
               <span>{icon}</span>{text}
             </div>
           ) : null)}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 15, fontWeight: 700, color: '#00d4ff' }}>
+          <div className="grad-text" style={{ fontFamily: 'var(--font-head)', fontSize: 15, fontWeight: 700 }}>
             {job.salary_label}
           </div>
           <button
             onClick={e => { e.stopPropagation(); window.open(job.apply_url, '_blank') }}
+            className="btn-primary"
             style={{
-              padding: '9px 20px',
-              background: 'linear-gradient(135deg,#00d4ff,#7c3aed)',
-              border: 'none', borderRadius: 9, color: '#000',
-              fontWeight: 700, fontSize: 13, cursor: 'pointer',
-              fontFamily: "'Syne',sans-serif", whiteSpace: 'nowrap',
-              transition: 'all 0.2s',
+              padding: '9px 20px', fontSize: 13, whiteSpace: 'nowrap',
             }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.transform = 'scale(1.02)' }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1)' }}
           >Quick Apply →</button>
         </div>
       </div>

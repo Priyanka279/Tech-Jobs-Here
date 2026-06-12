@@ -1,12 +1,9 @@
 import React, { useState, useRef } from 'react'
 
-const block = (extra = {}) => ({
-  background: '#161d2e', border: '1px solid #1e293b', borderRadius: 16,
-  padding: 20, marginBottom: 14, ...extra,
-})
+const blockStyle = { padding: 20, marginBottom: 14 }
 const title = {
-  fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 700,
-  textTransform: 'uppercase', letterSpacing: '1.2px', color: '#64748b', marginBottom: 14,
+  fontFamily: 'var(--font-head)', fontSize: 11, fontWeight: 700,
+  textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--muted)', marginBottom: 14,
 }
 
 const COMPANIES = [
@@ -71,15 +68,15 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
   return (
     <aside>
       {/* AI Assistant */}
-      <div style={{ ...block(), border: '1px solid rgba(0,212,255,0.18)', position: 'relative' }}>
+      <div className="glass" style={{ ...blockStyle, border: '1px solid rgba(0,212,255,0.18)', position: 'relative' }}>
         <div style={{
           position: 'absolute', top: 14, right: 16, fontSize: 10, fontWeight: 700,
-          letterSpacing: '0.8px', color: '#00d4ff',
+          letterSpacing: '0.8px', color: 'var(--accent)',
           background: 'rgba(0,212,255,0.1)', padding: '3px 9px',
           borderRadius: 6, border: '1px solid rgba(0,212,255,0.25)',
         }}>AI</div>
 
-        <div style={{ ...title, color: '#00d4ff', display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div style={{ ...title, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 7 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="#00d4ff">
             <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
           </svg>
@@ -87,8 +84,8 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
         </div>
 
         <div style={{
-          fontSize: 13, color: '#e2e8f0', lineHeight: 1.65,
-          background: '#111827', borderRadius: 10, padding: 13,
+          fontSize: 13, color: 'var(--text)', lineHeight: 1.65,
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 13,
           marginBottom: 10, minHeight: 70,
           whiteSpace: 'pre-line',
         }}>
@@ -96,7 +93,7 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
             ? <span style={{ display: 'flex', gap: 4 }}>
                 {[0,1,2].map(i => (
                   <span key={i} style={{
-                    width: 6, height: 6, background: '#00d4ff', borderRadius: '50%',
+                    width: 6, height: 6, background: 'var(--accent)', borderRadius: '50%',
                     display: 'inline-block',
                     animation: `bounce 1s ${i*0.15}s ease-in-out infinite`,
                   }} />
@@ -113,24 +110,23 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
             onKeyDown={e => e.key === 'Enter' && askAI()}
             placeholder="Ask about jobs..."
             style={{
-              flex: 1, background: '#111827', border: '1px solid #1e293b',
-              color: '#e2e8f0', padding: '9px 12px', borderRadius: 9,
-              fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none',
+              flex: 1, background: 'var(--surface)', border: '1px solid var(--border)',
+              color: 'var(--text)', padding: '9px 12px', borderRadius: 9,
+              fontFamily: 'var(--font-body)', fontSize: 13, outline: 'none',
             }}
           />
           <button
             onClick={askAI}
+            className="btn-primary"
             style={{
-              padding: '9px 15px', background: '#00d4ff', border: 'none',
-              borderRadius: 9, color: '#000', fontWeight: 700, fontSize: 14,
-              cursor: 'pointer', fontFamily: "'DM Sans',sans-serif",
+              padding: '9px 15px', fontSize: 14,
             }}
           >→</button>
         </div>
       </div>
 
       {/* Top Companies */}
-      <div style={block()}>
+      <div className="glass" style={blockStyle}>
         <div style={title}>Top Companies Hiring</div>
         {COMPANIES.map(co => {
           const color = COMPANY_COLORS[co] || '#7c3aed'
@@ -143,9 +139,9 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
                 borderRadius: 10, cursor: 'pointer', fontSize: 14,
                 border: `1px solid ${active ? `${color}35` : 'transparent'}`,
                 background: active ? `${color}0d` : 'transparent',
-                transition: 'all 0.15s', marginBottom: 2,
+                transition: 'all 0.2s var(--ease)', marginBottom: 2,
               }}
-              onMouseEnter={e => !active && (e.currentTarget.style.background = '#1c2538')}
+              onMouseEnter={e => !active && (e.currentTarget.style.background = 'var(--hover)')}
               onMouseLeave={e => !active && (e.currentTarget.style.background = 'transparent')}
             >
               <div style={{
@@ -156,8 +152,8 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
               }}>{co[0]}</div>
               <span style={{ fontWeight: 500, fontSize: 13, flex: 1 }}>{co}</span>
               <span style={{
-                fontSize: 11, background: '#1c2538', padding: '2px 8px',
-                borderRadius: 8, color: '#64748b',
+                fontSize: 11, background: 'var(--surface-2)', padding: '2px 8px',
+                borderRadius: 8, color: 'var(--muted)',
               }}>→</span>
             </div>
           )
@@ -165,7 +161,7 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
       </div>
 
       {/* Job Types */}
-      <div style={block()}>
+      <div className="glass" style={blockStyle}>
         <div style={title}>Job Type</div>
         {[
           { label: 'Full-time',      color: '#10b981', cnt: 'Most' },
@@ -176,13 +172,13 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
           <div key={label} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '8px 0', fontSize: 14,
-            borderBottom: '1px solid rgba(255,255,255,0.04)',
+            borderBottom: '1px solid var(--border)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, marginRight: 10 }} />
               {label}
             </div>
-            <span style={{ fontSize: 12, color: '#64748b' }}>{cnt}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{cnt}</span>
           </div>
         ))}
         <div
@@ -190,15 +186,17 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
           style={{
             marginTop: 10, padding: '8px 12px',
             background: 'rgba(0,212,255,0.07)', border: '1px solid rgba(0,212,255,0.2)',
-            borderRadius: 9, fontSize: 13, color: '#00d4ff',
+            borderRadius: 9, fontSize: 13, color: 'var(--accent)',
             cursor: 'pointer', textAlign: 'center', fontWeight: 500,
-            transition: 'background 0.2s',
+            transition: 'all 0.2s var(--ease)',
           }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,212,255,0.13)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,212,255,0.07)'}
         >🌐 Toggle Remote Only</div>
       </div>
 
       {/* Salary */}
-      <div style={block()}>
+      <div className="glass" style={blockStyle}>
         <div style={title}>Minimum Salary ($/yr)</div>
         <input
           type="range" min={0} max={300} step={10} value={minSal}
@@ -206,17 +204,17 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
           style={{ width: '100%', accentColor: '#00d4ff', margin: '10px 0' }}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-          <span style={{ color: '#64748b' }}>Any</span>
-          <span style={{ fontWeight: 700, color: '#00d4ff' }}>
+          <span style={{ color: 'var(--muted)' }}>Any</span>
+          <span className="grad-text" style={{ fontWeight: 700 }}>
             {minSal > 0 ? `$${minSal}k+ / year` : 'Any salary'}
           </span>
         </div>
       </div>
 
       {/* Alerts */}
-      <div style={{ ...block(), border: '1px solid rgba(0,212,255,0.18)' }}>
-        <div style={{ ...title, color: '#00d4ff' }}>🔔 Instant Job Alerts</div>
-        <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6, marginBottom: 14 }}>
+      <div className="glass" style={{ ...blockStyle, border: '1px solid rgba(0,212,255,0.18)' }}>
+        <div style={{ ...title, color: 'var(--accent)' }}>🔔 Instant Job Alerts</div>
+        <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 14 }}>
           Get notified the moment Google, Amazon, Meta and other top companies post matching roles
         </p>
         <input
@@ -225,20 +223,18 @@ Be concise (2-4 sentences), specific, and encouraging. Mention real companies li
           onChange={e => setAlertEmail(e.target.value)}
           placeholder="your@email.com"
           style={{
-            width: '100%', background: '#111827', border: '1px solid #1e293b',
-            color: '#e2e8f0', padding: '9px 13px', borderRadius: 9,
-            fontFamily: "'DM Sans',sans-serif", fontSize: 13, outline: 'none',
-            marginBottom: 8, transition: 'border-color 0.18s',
+            width: '100%', background: 'var(--surface)', border: '1px solid var(--border)',
+            color: 'var(--text)', padding: '9px 13px', borderRadius: 9,
+            fontFamily: 'var(--font-body)', fontSize: 13, outline: 'none',
+            marginBottom: 8, transition: 'border-color 0.2s var(--ease)',
           }}
+          onFocus={e => e.target.style.borderColor = 'var(--border-2)'}
+          onBlur={e => e.target.style.borderColor = 'var(--border)'}
         />
         <button
           onClick={() => { onAlert(alertEmail); setAlertEmail('') }}
-          style={{
-            width: '100%', padding: 10, background: '#00d4ff', border: 'none',
-            borderRadius: 9, color: '#000', fontWeight: 700, fontSize: 13,
-            cursor: 'pointer', fontFamily: "'Syne',sans-serif",
-            transition: 'opacity 0.2s',
-          }}
+          className="btn-primary"
+          style={{ width: '100%', padding: 10, fontSize: 13 }}
         >Activate Alerts ↗</button>
       </div>
     </aside>

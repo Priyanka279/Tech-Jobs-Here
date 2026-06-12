@@ -5,13 +5,15 @@ import Sidebar  from './components/Sidebar.jsx'
 import JobCard  from './components/JobCard.jsx'
 import JobModal from './components/JobModal.jsx'
 import ResumeMatch from './components/ResumeMatch.jsx'
+import BackgroundFX from './components/BackgroundFX.jsx'
+import Reveal from './components/Reveal.jsx'
 import { useJobs } from './hooks/useJobs.js'
 import { api } from './utils/api.js'
 
 // Skeleton loader card
 function SkeletonCard() {
   return (
-    <div style={{ background: '#161d2e', border: '1px solid #1e293b', borderRadius: 16, padding: 22 }}>
+    <div className="glass" style={{ padding: 22 }}>
       <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
         <div className="skeleton" style={{ width: 48, height: 48, borderRadius: 12, flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
@@ -24,7 +26,7 @@ function SkeletonCard() {
           <div key={w} className="skeleton" style={{ height: 26, width: w, borderRadius: 7 }} />
         ))}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 13, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 13, borderTop: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', gap: 14 }}>
           <div className="skeleton" style={{ height: 13, width: 120, borderRadius: 6 }} />
           <div className="skeleton" style={{ height: 13, width: 80, borderRadius: 6 }} />
@@ -42,14 +44,14 @@ function Toast({ msg, onDone }) {
     return () => clearTimeout(t)
   }, [msg, onDone])
   return (
-    <div style={{
+    <div className="glass-strong" style={{
       position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
-      background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)',
-      borderRadius: 12, padding: '12px 20px',
+      border: '1px solid rgba(16,185,129,0.3)',
+      padding: '12px 20px',
       display: 'flex', alignItems: 'center', gap: 10,
       fontSize: 13, color: '#10b981', zIndex: 300,
-      animation: 'slideIn 0.3s ease', whiteSpace: 'nowrap',
-      backdropFilter: 'blur(10px)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+      animation: 'slideIn 0.3s var(--ease)', whiteSpace: 'nowrap',
+      borderRadius: 12,
     }}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
@@ -69,7 +71,7 @@ function SourceBanner({ note, isReal }) {
       borderRadius: 10, padding: '9px 14px',
       display: 'flex', alignItems: 'center', gap: 8,
       fontSize: 12, color: isReal ? '#10b981' : '#f59e0b',
-      marginBottom: 14, animation: 'slideIn 0.3s ease',
+      marginBottom: 14, animation: 'slideIn 0.3s var(--ease)',
     }}>
       <span>{isReal ? '🟢' : '🟡'}</span>
       <span>{note}</span>
@@ -151,23 +153,7 @@ export default function App() {
 
   return (
     <>
-      <style>{`
-        @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes slideIn{ from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-7px)} }
-        @keyframes shimmer{ 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        @keyframes pulse  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.4)} }
-        .fade-up  { animation: fadeUp 0.4s ease both }
-        .fade-up-1{ animation: fadeUp 0.4s 0.05s ease both }
-        .fade-up-2{ animation: fadeUp 0.4s 0.10s ease both }
-        .fade-up-3{ animation: fadeUp 0.4s 0.15s ease both }
-        .fade-up-4{ animation: fadeUp 0.4s 0.20s ease both }
-        .skeleton {
-          background: linear-gradient(90deg,#161d2e 25%,#1c2538 50%,#161d2e 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-        }
-      `}</style>
+      <BackgroundFX />
 
       <Navbar
         tab={tab}
@@ -207,24 +193,23 @@ export default function App() {
           <SourceBanner note={sourceNote} isReal={hasRealData} />
 
           {/* Header row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 15, fontWeight: 600 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ fontFamily: 'var(--font-head)', fontSize: 15, fontWeight: 600 }}>
               {loading ? 'Searching…' : `${displayedJobs.length} job${displayedJobs.length !== 1 ? 's' : ''} found`}
               {total > displayedJobs.length && !loading && (
-                <span style={{ fontSize: 13, color: '#64748b', fontWeight: 400 }}> of {total} total</span>
+                <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 400 }}> of {total} total</span>
               )}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {/* Remote toggle */}
               <button
                 onClick={() => setRemote(r => r ? null : true)}
+                className="tag"
                 style={{
-                  padding: '7px 13px', borderRadius: 9, fontSize: 13, fontWeight: 500,
-                  cursor: 'pointer', transition: 'all 0.18s',
-                  background: remote ? 'rgba(0,212,255,0.1)' : '#161d2e',
-                  border: remote ? '1px solid #00d4ff' : '1px solid #1e293b',
-                  color: remote ? '#00d4ff' : '#64748b',
-                  fontFamily: "'DM Sans',sans-serif",
+                  cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '8px 14px',
+                  background: remote ? 'rgba(0,212,255,0.1)' : 'var(--surface)',
+                  border: remote ? '1px solid rgba(0,212,255,0.45)' : '1px solid var(--border)',
+                  color: remote ? 'var(--accent)' : 'var(--muted)',
                 }}
               >🌐 Remote</button>
 
@@ -232,10 +217,11 @@ export default function App() {
               <select
                 value={sort}
                 onChange={e => setSort(e.target.value)}
+                className="btn-ghost"
                 style={{
-                  background: '#161d2e', border: '1px solid #1e293b',
-                  color: '#e2e8f0', padding: '8px 14px', borderRadius: 10,
-                  fontFamily: "'DM Sans',sans-serif", fontSize: 13, cursor: 'pointer', outline: 'none',
+                  padding: '8px 14px', borderRadius: 10,
+                  fontFamily: 'var(--font-body)', fontSize: 13, outline: 'none',
+                  color: 'var(--text)',
                 }}
               >
                 <option value="newest">Newest First</option>
@@ -248,14 +234,13 @@ export default function App() {
               <button
                 onClick={refresh}
                 title="Refresh jobs"
+                className="btn-ghost"
                 style={{
-                  padding: '8px 12px', background: '#161d2e',
-                  border: '1px solid #1e293b', borderRadius: 10,
-                  color: '#64748b', cursor: 'pointer', fontSize: 15,
-                  transition: 'all 0.15s',
+                  padding: '8px 12px', borderRadius: 10,
+                  color: 'var(--muted)', fontSize: 15,
                 }}
-                onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
-                onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
               >↻</button>
             </div>
           </div>
@@ -270,7 +255,7 @@ export default function App() {
               <span style={{ fontSize: 18, animation: 'bounce 1s infinite' }}>⏳</span>
               <div>
                 <div style={{ fontWeight: 600 }}>Server is waking up…</div>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 3 }}>This takes ~15–30 seconds on first load. Retrying automatically.</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>This takes ~15–30 seconds on first load. Retrying automatically.</div>
               </div>
             </div>
           )}
@@ -295,26 +280,26 @@ export default function App() {
 
           {/* Empty saved */}
           {!loading && tab === 'saved' && displayedJobs.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '70px 20px', color: '#64748b' }}>
+            <div style={{ textAlign: 'center', padding: '70px 20px', color: 'var(--muted)' }}>
               <div style={{ fontSize: 52, marginBottom: 14, opacity: 0.25 }}>❤️</div>
-              <h3 style={{ fontFamily: "'Syne',sans-serif", fontSize: 19, color: '#e2e8f0', marginBottom: 8 }}>No saved jobs yet</h3>
+              <h3 style={{ fontFamily: 'var(--font-head)', fontSize: 19, color: 'var(--text)', marginBottom: 8 }}>No saved jobs yet</h3>
               <p style={{ fontSize: 14 }}>Click the 🤍 on any job card to save it here</p>
             </div>
           )}
 
           {/* Empty search */}
           {!loading && tab !== 'saved' && displayedJobs.length === 0 && !error && (
-            <div style={{ textAlign: 'center', padding: '70px 20px', color: '#64748b' }}>
+            <div style={{ textAlign: 'center', padding: '70px 20px', color: 'var(--muted)' }}>
               <div style={{ fontSize: 52, marginBottom: 14, opacity: 0.25 }}>🔍</div>
-              <h3 style={{ fontFamily: "'Syne',sans-serif", fontSize: 19, color: '#e2e8f0', marginBottom: 8 }}>No jobs found</h3>
+              <h3 style={{ fontFamily: 'var(--font-head)', fontSize: 19, color: 'var(--text)', marginBottom: 8 }}>No jobs found</h3>
               <p style={{ fontSize: 14 }}>Try adjusting your search terms or filters</p>
               <button
                 onClick={() => { setQuery(''); setCategory('All'); setRemote(null); setMinSal(0) }}
+                className="btn-ghost"
                 style={{
-                  marginTop: 16, padding: '10px 20px',
-                  background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.3)',
-                  borderRadius: 10, color: '#00d4ff', cursor: 'pointer', fontSize: 14,
-                  fontFamily: "'DM Sans',sans-serif",
+                  marginTop: 16, padding: '10px 20px', borderRadius: 10,
+                  color: 'var(--accent)', fontSize: 14,
+                  border: '1px solid rgba(0,212,255,0.3)', background: 'rgba(0,212,255,0.1)',
                 }}
               >Clear all filters</button>
             </div>
@@ -324,18 +309,14 @@ export default function App() {
           {!loading && displayedJobs.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {displayedJobs.map((job, i) => (
-                <div
-                  key={job.id}
-                  className="fade-up"
-                  style={{ animationDelay: `${Math.min(i * 0.04, 0.3)}s` }}
-                >
+                <Reveal key={job.id} delay={Math.min(i * 30, 240)}>
                   <JobCard
                     job={job}
                     saved={saved.has(job.id)}
                     onSave={handleSave}
                     onClick={() => setModal(job)}
                   />
-                </div>
+                </Reveal>
               ))}
             </div>
           )}
