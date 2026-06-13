@@ -383,6 +383,43 @@ SAMPLE_JOBS = [
     {"id":"s21","source":"sample","title":"Manual QA Tester (Entry Level)","company":"TCS","location":"Remote (Global)","description":"Entry-level QA role for freshers. Execute manual test cases, log defects in JIRA, and learn automation tools on the job. Full training provided.","salary_min":42000,"salary_max":58000,"salary_label":"$42k–$58k","job_type":"Full-time","remote":True,"tags":["Manual Testing","JIRA","QA","Postman"],"apply_url":"https://www.tcs.com/careers","posted_at":"","posted_label":"5h ago","logo":None},
 ]
 
+# ── QUERY RELEVANCE ───────────────────────────────────────────────────────────
+def _query_words(query: str) -> list[str]:
+    return [w.lower() for w in (query or "").split() if len(w) > 2]
+
+def _relevance_score(job: dict, words: list[str]) -> int:
+    title = job["title"].lower()
+    body = (" ".join(job.get("tags", [])) + " " + job.get("description", "")).lower()
+    score = 0
+    for w in words:
+        if w in title:
+            score += 3
+        elif w in body:
+            score += 1
+    return score
+
+def _filter_by_query(jobs: list[dict], query: str) -> list[dict]:
+    """Keep only jobs matching at least one query word, best matches first.
+    Returns the list unchanged if nothing matches, to avoid an empty page."""
+    words = _query_words(query)
+    if not words:
+        return jobs
+    scored = sorted(((j, _relevance_score(j, words)) for j in jobs),
+                    key=lambda x: x[1], reverse=True)
+    matched = [j for j, s in scored if s > 0]
+    return matched if matched else jobs
+
+_ENTRY_QUERY_WORDS = {
+    "entry", "level", "entry-level", "junior", "graduate", "fresher",
+    "trainee", "associate", "intern", "internship", "grad",
+}
+
+def _is_entry_query(query: str) -> bool:
+    """True only when every query word signals entry-level intent — so the broad
+    default query (which mentions 'entry level' among other roles) is unaffected."""
+    words = _query_words(query)
+    return bool(words) and all(w in _ENTRY_QUERY_WORDS for w in words)
+
 # ── ROUTES ─────────────────────────────────────────────────────────────────────
 @app.get("/")
 async def root():
@@ -460,6 +497,13 @@ async def _aggregate_jobs(
             seen.add(key)
             unique_jobs.append(j)
 
+    # Relevance: drop jobs that match nothing in the query, best matches first
+    unique_jobs = _filter_by_query(unique_jobs, search_query)
+
+    # If the user asked specifically for entry-level roles, hide senior-titled jobs
+    if _is_entry_query(search_query):
+        unique_jobs = [j for j in unique_jobs if _seniority_level(j["title"]) != "senior"]
+
     # Filter
     if remote is True:
         unique_jobs = [j for j in unique_jobs if j["remote"]]
@@ -471,6 +515,9 @@ async def _aggregate_jobs(
         unique_jobs.sort(key=lambda j: j["salary_min"] or 0, reverse=True)
     elif sort == "company":
         unique_jobs.sort(key=lambda j: j["company"])
+    elif sort == "relevance":
+        words = _query_words(search_query)
+        unique_jobs.sort(key=lambda j: _relevance_score(j, words), reverse=True)
 
     result = {
         "jobs": unique_jobs,
